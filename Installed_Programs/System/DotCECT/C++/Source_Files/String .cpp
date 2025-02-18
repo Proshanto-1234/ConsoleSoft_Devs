@@ -1,27 +1,50 @@
-#include "../Header_Files/String.h"
-using namespace std;
-String::String(int l) {
-    str = new char[l + 1];
-    str[0] = '\0';
-    length = 0;
-    maxlen = l;
-    fail = false;
-}
+#ifndef STRING_H
+#define STRING_H
 
-String::~String() {
-    delete[] str;
-}
+class String {
+public:
+    // Constructor
+    String(const char* s = nullptr); // Constructor from C-style string
+    String(int len); // Constructor with specified length
 
-void String::concat(int len) {
-    char* tstr = new char[length + len + 1];
-    int i = 0;
-    while (str[i]) tstr[i] = str[i++];
-    tstr[i] = '\0';
-    delete[] str;
-    str = tstr;
-    maxlen = length + len;
-}
-void String::Space(int i) {
-  if (i) {
-      maxlen = strlen(str)-i;
-      memmove(
+    // Copy Constructor
+    String(const String& other);
+
+    // Move Constructor
+    String(String&& other) noexcept;
+
+    // Destructor
+    ~String();
+
+    // Assignment Operators
+    String& operator=(const String& other);
+    String& operator=(String&& other) noexcept;
+
+    // Getters
+    int GetLength() const;
+    int GetCapacity() const;
+
+    // String manipulation
+    char CharAt(int i) const;
+    String Substring(int from, int to) const;
+    String Substring(int from) const;
+    String& Append(const char* s);
+    String& Append(const String& other);
+
+    // Operators
+    char& operator[](int i);
+    char operator[](int i) const;
+    String operator+(const String& other) const;
+    String operator+(const char* s) const;
+    bool operator==(const String& other) const;
+    bool operator!=(const String& other) const;
+
+private:
+    char* str;
+    int length;
+    int capacity;
+
+    void Allocate(int newCapacity);
+};
+
+#endif
