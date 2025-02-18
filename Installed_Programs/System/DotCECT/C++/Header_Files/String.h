@@ -1,73 +1,50 @@
-//////////////////////
-// Class String
-//
-//////////////////////
-#include <iostream>
-#include <cstring>
+#ifndef STRING_H
+#define STRING_H
 
 class String {
 public:
     // Constructor
-    String(const char* s);
-    String(int len = 127);
+    String(const char* s = nullptr); // Constructor from C-style string
+    String(int len); // Constructor with specified length
+
+    // Copy Constructor
+    String(const String& other);
+
+    // Move Constructor
+    String(String&& other) noexcept;
 
     // Destructor
-    virtual ~String();
+    ~String();
+
+    // Assignment Operators
+    String& operator=(const String& other);
+    String& operator=(String&& other) noexcept;
 
     // Getters
-    int GetLength() const; // Return the length of the current string
-    int GetMaxLength() const;
+    int GetLength() const;
+    int GetCapacity() const;
 
-    // String manipulation methods
-    char* GetStrPtr() const;
-    char* GetString(int from, int to) const;
-    char* GetString(int from) const;
-    char CharAt(int i) const; // Return the char value of index i
-    char* PeekString(int from, int to) const;
-    char* PeekString(int from) const;
-    char* PeekString() const;
+    // String manipulation
+    char CharAt(int i) const;
+    String Substring(int from, int to) const;
+    String Substring(int from) const;
+    String& Append(const char* s);
+    String& Append(const String& other);
 
-    // Utility methods
-    void SetString(const char* s);
-    void ShowStringInfo() const;
-    bool IsFail() const;
-
-    // Overloaded operators
-    String& operator+=(const char* s);
-    String& operator+=(const String& o);
-    String& operator+=(long l);
-    String& operator+=(double d);
-
-    String& operator=(const String& o);
-    String& operator=(const char* s);
-    String& operator=(long l);
-    String& operator=(double d);
-
-    String& operator>>(char* s);
-    String& operator>>(long& l);
-    String& operator>>(double& d);
-
-    String operator+(const String& o2) const;
-    String operator+(double d) const;
+    // Operators
+    char& operator[](int i);
+    char operator[](int i) const;
+    String operator+(const String& other) const;
     String operator+(const char* s) const;
-    String operator+(long l) const;
-
-    char& operator[](int i) const;
-
-    // Friend operators
-    friend String operator+(const char* s, const String& o);
-    friend String operator+(long l, const String& o);
-    friend String operator+(double d, const String& o);
-    friend std::ostream& operator<<(std::ostream& os, const String& o);
+    bool operator==(const String& other) const;
+    bool operator!=(const String& other) const;
 
 private:
-    // Private utility methods
-    void concat(int len);
-    void space(int i);
-
-    // Member variables
-    int maxlen;
-    int length;
     char* str;
-    bool fail;
+    int length;
+    int capacity;
+
+    void Allocate(int newCapacity);
 };
+
+#endif
