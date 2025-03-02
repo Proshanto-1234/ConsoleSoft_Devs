@@ -9,3 +9,5 @@ CD_CORRUPTED
 static CD_ROM_STATUS getstatus(int disk_index) {
 // My logics to read disk status
 }
+static bool opentray() {}
+int long timeout = 15000; // Set timeout period for detecting CD to 15 seconds
