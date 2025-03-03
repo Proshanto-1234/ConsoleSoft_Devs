@@ -11,3 +11,6 @@ static CD_ROM_STATUS getstatus(int disk_index) {
 }
 static bool opentray() {}
 int long timeout = 15000; // Set timeout period for detecting CD to 15 seconds
+static int listCD(int long timeoutperiod = timeout) {
+// Funtion to list or detect all CD drives connected
+}
