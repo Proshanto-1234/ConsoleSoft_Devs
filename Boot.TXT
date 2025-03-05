@@ -1,0 +1,194 @@
+; -----------------------------------------------------------------------
+; Simple Bootloader for x86 (Real Mode) - NASM Syntax - with VGA & Message
+; -----------------------------------------------------------------------
+
+BITS 16             ; Assemble for 16-bit real mode
+
+ORG 0x7C00          ; Standard load address for boot sector in memory
+
+; -----------------------------------------------------------------------
+; Constants and Definitions
+; -----------------------------------------------------------------------
+STACK_TOP       EQU 0x9000
+KEYBOARD_COMMAND_PORT EQU 0x64
+KEYBOARD_DATA_PORT    EQU 0x60
+
+VIDEO_MEMORY      EQU 0xB8000 ; Start address of VGA text mode video memory
+SCREEN_WIDTH      EQU 80      ; Screen width in characters
+
+; VGA Controller Ports
+VGA_CRT_CONTROLLER_INDEX_PORT  EQU 0x3D4 ; CRT Controller Index Register (for color)
+VGA_CRT_CONTROLLER_DATA_PORT   EQU 0x3D5 ; CRT Controller Data Register (for color)
+VGA_ATTRIBUTE_CONTROLLER_INDEX_PORT EQU 0x3C0 ; Attribute Controller Index Register (for color)
+VGA_ATTRIBUTE_CONTROLLER_WRITE_PORT  EQU 0x3C0 ; Attribute Controller Write Register (for color)
+VGA_ATTRIBUTE_CONTROLLER_READ_PORT   EQU 0x3C1 ; Attribute Controller Read Register (for color)
+VGA_GRAPHICS_CONTROLLER_INDEX_PORT  EQU 0x3CE ; Graphics Controller Index Register (for color)
+VGA_GRAPHICS_CONTROLLER_DATA_PORT   EQU 0x3CF ; Graphics Controller Data Register (for color)
+VGA_SEQUENCER_INDEX_PORT         EQU 0x3C4 ; Sequencer Index Register (for color)
+VGA_SEQUENCER_DATA_PORT          EQU 0x3C5 ; Sequencer Data Register (for color)
+VGA_MISC_OUTPUT_WRITE_PORT       EQU 0x3C2 ; Miscellaneous Output Register (for color)
+
+
+; -----------------------------------------------------------------------
+; Bootloader Start
+; -----------------------------------------------------------------------
+start:
+    ; -------------------------------------------------------------------
+    ; 1. Initialize Basic Things
+    ; -------------------------------------------------------------------
+
+    ; --- Initialize Segment Registers ---
+    MOV AX, CS
+    MOV DS, AX
+    MOV ES, AX
+    MOV SS, AX
+    MOV GS, AX
+
+    ; --- Initialize Stack Pointer ---
+    MOV SP, STACK_TOP
+
+    ; --- Disable Interrupts ---
+    CLI
+
+
+    ; -------------------------------------------------------------------
+    ; 2. Initialize VGA Text Mode
+    ; -------------------------------------------------------------------
+    call vga_initialize_text_mode
+
+
+    ; -------------------------------------------------------------------
+    ; 3. Initialize Device (Keyboard - PS/2)
+    ; -------------------------------------------------------------------
+    call initialize_keyboard
+
+
+    ; -------------------------------------------------------------------
+    ; 4. Print "Bootloader Finished!" Message
+    ; -------------------------------------------------------------------
+    MOV SI, boot_finished_message ; Load address of the message string
+    call print_string
+
+
+    ; -------------------------------------------------------------------
+    ; 5. Bootloader Done - Halt
+    ; -------------------------------------------------------------------
+halt_loop:
+    HLT
+    JMP halt_loop
+
+
+
+; -----------------------------------------------------------------------
+; Subroutines
+; -----------------------------------------------------------------------
+
+; -----------------------------------------------------------------------
+; vga_initialize_text_mode: Initializes VGA to 80x25 text mode
+; -----------------------------------------------------------------------
+vga_initialize_text_mode:
+    pusha ; Save all registers
+
+    ; Set text mode 80x25
+    MOV AX, 0x0003 ; AL = 3 for 80x25 text mode, AH = 0 (no clear screen on mode set in BIOS)
+    INT 0x10       ; BIOS video interrupt
+
+    ; Clear screen with spaces and default attribute (light gray on black)
+    MOV CX, 80 * 25 ; Total characters on screen
+    MOV AX, 0x0720  ; Attribute (0x07 = light gray on black), Character (0x20 = space)
+    MOV DI, VIDEO_MEMORY
+clear_screen_loop:
+    MOV [DI], AX
+    ADD DI, 2       ; Move to next character location (character + attribute = 2 bytes)
+    LOOP clear_screen_loop
+
+    popa  ; Restore registers
+    ret
+
+
+; -----------------------------------------------------------------------
+; initialize_keyboard: Initializes the PS/2 Keyboard Controller
+; -----------------------------------------------------------------------
+initialize_keyboard:
+    pusha
+
+    ; Wait for Keyboard Controller to be ready
+.wait_kb_ready:
+    IN AL, KEYBOARD_COMMAND_PORT
+    TEST AL, 0x02
+    JNZ .wait_kb_ready
+
+    ; Send Keyboard Initialization Command (0x51 - assuming this is still appropriate for PS/2)
+    MOV AL, 0x51
+    OUT KEYBOARD_COMMAND_PORT, AL
+
+    popa
+    ret
+
+
+; -----------------------------------------------------------------------
+; print_string: Prints a null-terminated string to the screen using video memory
+; Input: SI = address of the string
+; -----------------------------------------------------------------------
+print_string:
+    pusha
+    MOV DI, VIDEO_MEMORY ; Starting video memory address
+    XOR BX, BX          ; BX = Attribute (BL=Attribute byte, BH = Character page - not used here)
+    MOV BL, 0x0F        ; Attribute: 0x0F = White on black (adjust if needed)
+
+.print_loop:
+    LODSB               ; Load byte from DS:SI into AL, increment SI
+    OR AL, AL           ; Check for null terminator (AL == 0)
+    JZ .string_done     ; If null, end of string
+
+    CMP AL, 0x0A        ; Check for newline character (LF - Line Feed)
+    JE  .newline        ; If newline, handle it
+
+    ; Print character
+    MOV AH, BL          ; Attribute byte
+    MOV [DI], AX        ; Write character and attribute to video memory
+    ADD DI, 2           ; Move to next character position
+
+    JMP .print_loop     ; Continue with next character
+
+.newline:
+    ; Move to the beginning of the next line
+    MOV AX, DI
+    SUB AX, VIDEO_MEMORY ; Current offset from video memory start
+    MOV CL, SCREEN_WIDTH * 2 ; Bytes per line
+    DIV CL              ; AX = Row index (in bytes/2 units)
+    INC AX              ; Next row
+    MUL CL              ; AX = Start of next row in bytes/2 units
+    MOV DI, VIDEO_MEMORY
+    ADD DI, AX          ; DI now points to the start of the next line
+
+    JMP .print_loop
+
+
+.string_done:
+    popa
+    ret
+
+
+; -----------------------------------------------------------------------
+; Data Section
+; -----------------------------------------------------------------------
+section .data
+
+boot_finished_message db "Bootloader Finished!", 0 ; Null-terminated string
+
+
+; -----------------------------------------------------------------------
+; Stack Space
+; -----------------------------------------------------------------------
+section .bss stack resb 256
+
+; -----------------------------------------------------------------------
+; Boot Sector Signature
+; -----------------------------------------------------------------------
+    TIMES 510 - ($ - $$) DB 0
+    DW 0xAA55
+
+; -----------------------------------------------------------------------
+; End of Bootloader Source
+; -----------------------------------------------------------------------
